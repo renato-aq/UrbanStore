@@ -20,7 +20,19 @@ export async function scrapeML(options: ScraperOptions): Promise<Product[]> {
     throw new Error("A URL está vazia. Envie uma URL válida do Mercado Livre.");
   }
 
-  const products: Product[] = [];
+  // 🔹 Carrega produtos antigos
+  let produtosAntigos: Product[] = [];
+  if (fs.existsSync("products.json")) {
+    const raw = fs.readFileSync("products.json", "utf-8");
+    produtosAntigos = JSON.parse(raw);
+  }
+
+  // 🔹 Cria lista de URLs já conhecidas
+  const urlsAntigas = new Set(produtosAntigos.map(p => p.url));
+
+  const produtosNovos: Product[] = [];
+  const produtosAtualizados: Product[] = [...produtosAntigos];
+
   let pagina = 1;
   let offset = 1;
 
@@ -67,27 +79,45 @@ export async function scrapeML(options: ScraperOptions): Promise<Product[]> {
           card.find("a.poly-component__title").attr("href") ||
           undefined;
 
-        if (nome && preco) {
-          products.push({
+        if (nome && preco && urlProduto) {
+          const cleanUrl = urlProduto.split("?")[0];
+
+          const novoProduto: Product = {
             nome,
             preco: `R$ ${preco}`,
             foto,
-            url: urlProduto ? urlProduto.split("?")[0] : undefined,
-          });
+            url: cleanUrl,
+          };
+
+          // 🔹 Se a URL NÃO existir no JSON → é produto novo
+          if (!urlsAntigas.has(cleanUrl)) {
+            console.log("🔍 Produto novo encontrado:", cleanUrl);
+            produtosNovos.push(novoProduto);
+            produtosAtualizados.push(novoProduto);
+            urlsAntigas.add(cleanUrl);
+          }
         }
       });
 
       pagina++;
       offset += 48;
+
     } catch (err) {
       console.error("Erro durante scraping:", err);
       break;
     }
   }
 
-  fs.writeFileSync("produtos.json", JSON.stringify(products, null, 2), "utf-8");
+  // 🔹 Salva JSON atualizado com novos + antigos
+  fs.writeFileSync(
+    "products.json",
+    JSON.stringify(produtosAtualizados, null, 2),
+    "utf-8"
+  );
 
-  console.log(`\nScraping completo. Total de produtos: ${products.length}`);
+  console.log(`\nScraping completo.`);
+  console.log(`Novos produtos encontrados: ${produtosNovos.length}`);
 
-  return products;
+  // 🔹 Retorna apenas os novos
+  return produtosNovos;
 }
