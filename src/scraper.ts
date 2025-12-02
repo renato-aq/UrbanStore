@@ -1,4 +1,3 @@
-// scraper.ts
 import axios from "axios";
 import * as cheerio from "cheerio";
 import fs from "fs";
@@ -14,7 +13,6 @@ export interface ScraperOptions {
   url?: string;
 }
 
-// === FUNÇÃO PRINCIPAL DE SCRAPING ===
 export async function scrapeML(options: ScraperOptions): Promise<Product[]> {
   const { url } = options;
 
@@ -87,7 +85,6 @@ export async function scrapeML(options: ScraperOptions): Promise<Product[]> {
     }
   }
 
-  // Salva arquivo
   fs.writeFileSync("produtos.json", JSON.stringify(products, null, 2), "utf-8");
 
   console.log(`\nScraping completo. Total de produtos: ${products.length}`);

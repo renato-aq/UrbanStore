@@ -4,13 +4,11 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Token
 const token = process.env.TELEGRAM_TOKEN;
 if (!token) {
   throw new Error("A variável TELEGRAM_TOKEN não está definida no .env");
 }
 
-// Chat ID (garantimos que NUNCA será undefined)
 const chatIdEnv = process.env.CHAT_ID;
 if (!chatIdEnv) {
   throw new Error("A variável CHAT_ID não está definida no .env");
