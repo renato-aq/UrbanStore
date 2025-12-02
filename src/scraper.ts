@@ -1,33 +1,33 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
-import fs from 'fs';
+// scraper.ts
+import axios from "axios";
+import * as cheerio from "cheerio";
+import fs from "fs";
 
-interface Produto {
+export interface Product {
   nome: string | undefined;
   preco: string | undefined;
   foto?: string | undefined;
   url?: string | undefined;
 }
 
-interface ScraperOptions {
-  url?: string; // pode vir vazio
+export interface ScraperOptions {
+  url?: string;
 }
 
-async function scrapeMercadoLivre(options: ScraperOptions) {
+// === FUNÇÃO PRINCIPAL DE SCRAPING ===
+export async function scrapeML(options: ScraperOptions): Promise<Product[]> {
   const { url } = options;
 
   if (!url || url.trim() === "") {
     throw new Error("A URL está vazia. Envie uma URL válida do Mercado Livre.");
   }
 
-  const produtos: Produto[] = [];
+  const products: Product[] = [];
   let pagina = 1;
   let offset = 1;
 
   while (true) {
-    const paginaUrl =
-      pagina === 1 ? url : `${url}_Desde_${offset}`;
-
+    const paginaUrl = pagina === 1 ? url : `${url}_Desde_${offset}`;
     console.log(`\nScrapando página ${pagina}: ${paginaUrl}`);
 
     try {
@@ -42,7 +42,6 @@ async function scrapeMercadoLivre(options: ScraperOptions) {
       const $ = cheerio.load(response.data);
       const itens = $(".ui-search-layout__item");
 
-      // Se não tem itens → acabou
       if (itens.length === 0) {
         console.log("Nenhum item encontrado. Fim das páginas.");
         break;
@@ -71,7 +70,7 @@ async function scrapeMercadoLivre(options: ScraperOptions) {
           undefined;
 
         if (nome && preco) {
-          produtos.push({
+          products.push({
             nome,
             preco: `R$ ${preco}`,
             foto,
@@ -80,29 +79,18 @@ async function scrapeMercadoLivre(options: ScraperOptions) {
         }
       });
 
-      console.log(`Itens acumulados: ${produtos.length}`);
-
-      // Avança para próxima página
       pagina++;
       offset += 48;
-
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        console.error(`Erro Axios na página ${pagina}:`, err.message);
-      } else if (err instanceof Error) {
-        console.error(`Erro inesperado na página ${pagina}:`, err.message);
-      } else {
-        console.error(`Erro desconhecido na página ${pagina}:`, err);
-      }
+      console.error("Erro durante scraping:", err);
       break;
     }
   }
 
-  fs.writeFileSync("produtos.json", JSON.stringify(produtos, null, 2), "utf-8");
-  console.log(`\nScraping completo. Total de produtos: ${produtos.length}`);
-}
+  // Salva arquivo
+  fs.writeFileSync("produtos.json", JSON.stringify(products, null, 2), "utf-8");
 
-// === EXECUÇÃO ===
-scrapeMercadoLivre({
-  url: "https://lista.mercadolivre.com.br/informatica/tablets-acessorios/tablets/apple/ipad/usado/ipados/ipad-10_OrderId_PRICE_PriceRange_1500-3400_NoIndex_True"
-});
+  console.log(`\nScraping completo. Total de produtos: ${products.length}`);
+
+  return products;
+}
