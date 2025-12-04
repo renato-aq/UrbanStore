@@ -1,30 +1,51 @@
-import { scrapeML } from "./scraper.js";
-import { sendProcessProduct } from "./bot.js";
+import "./services/register.js";
+import "./services/chat_register.js";
 
-const URL =
-  "https://lista.mercadolivre.com.br/informatica/tablets-acessorios/tablets/apple/ipad/usado/ipados/ipad-10_OrderId_PRICE_PriceRange_1500-3400_NoIndex_True";
+import fs from "fs";
+import path from "path";
+import { scrapeML } from "./services/scraper.js";
+import { sendProcessProduct } from "./services/bot.js";
 
-const INTERVALO = 60000;
+const filePath = path.resolve("urls.json");
 
-async function verificar() {
-  console.log("\n🔍 Verificando novos produtos...");
-
-  try {
-    const novos = await scrapeML({ url: URL });
-
-    if (novos.length > 0) {
-      console.log(`🚀 ${novos.length} novo(s) produto(s) encontrado(s)!`);
-      await sendProcessProduct(novos);
-    } else {
-      console.log("⚠️ Nenhum item novo encontrado.");
-    }
-  } catch (err) {
-    console.error("❌ Erro na verificação:", err);
-  }
-
-  console.log("⏳ Aguardando próxima verificação...");
+function loadUrls(): string[] {
+  if (!fs.existsSync(filePath)) return [];
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
-verificar();
+async function processAllUrls() {
+  const urls = loadUrls();
 
-setInterval(verificar, INTERVALO);
+  if (urls.length === 0) {
+    console.log("Nenhuma URL cadastrada.");
+    return;
+  }
+
+  console.log("Iniciando scrap da lista...");
+
+  for (const url of urls) {
+    try {
+      const products = await scrapeML({ url });
+
+      if (products && products.length > 0) {
+        await sendProcessProduct(products);
+      }
+    } catch (err) {
+      console.log("Erro ao scrapar:", url, err);
+    }
+  }
+
+  console.log("Processamento concluído. Aguardando 1 minuto...");
+}
+
+async function startLoop() {
+  console.log(
+    "Bot inicializado. Iniciando o loop de scraping e escuta de comandos...",
+  );
+  while (true) {
+    await processAllUrls();
+    await new Promise((resolve) => setTimeout(resolve, 60_000));
+  }
+}
+
+startLoop();
